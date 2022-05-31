@@ -12,4 +12,13 @@ what exceptions can be thrown here?
 
 
 def get_enriched_lead_json(adf_json: dict) -> dict:
-    pass
+    if not isinstance(adf_json, dict):
+        raise TypeError
+
+    d = dict()
+    try:
+        d['something']= adf_json['something'] 
+    except:
+        raise KeyError()
+    logging.info("Got enriched lead json.")
+    return d 

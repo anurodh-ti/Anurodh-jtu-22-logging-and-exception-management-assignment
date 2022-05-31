@@ -15,7 +15,11 @@ from fast_api_als.utils.boto3_utils import get_boto3_session
     
     write a commong function that logs this response code with appropriate context data
 """
+logging.basicConfig(format='%(levelname)s %(asctime)s %(message)s',level=logging.DEBUG)
 
+def log_table_operation(response,op):
+    http_response_code = response['ResponseMetadata']['HTTPStatusCode']
+    logging.info(f"table operation {operation} returned http response code: {http_response_code}")
 
 class DBHelper:
     def __init__(self, session: boto3.session.Session):
@@ -39,6 +43,7 @@ class DBHelper:
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.LEAD_ITEM_TTL)
         }
         res = self.table.put_item(Item=item)
+        log_table_operation(res,'put')
 
     def insert_oem_lead(self, uuid: str, make: str, model: str, date: str, email: str, phone: str, last_name: str,
                         timestamp: str, make_model_filter_status: str, lead_hash: str, dealer: str, provider: str,
@@ -65,6 +70,7 @@ class DBHelper:
         }
 
         res = self.table.put_item(Item=item)
+        log_table_operation(res,'put')
 
     def check_duplicate_api_call(self, lead_hash: str, lead_provider: str):
         res = self.table.get_item(
@@ -74,6 +80,7 @@ class DBHelper:
             }
         )
         item = res.get('Item')
+        log_table_operation(res,'get')
         if not item:
             return {
                 "Duplicate_Api_Call": {
@@ -118,6 +125,7 @@ class DBHelper:
                 'sk': 'METADATA'
             }
         )
+        log_table_operation(res,'get')
         if res['Item'].get('settings', {}).get('make_model', "False") == 'True':
             return True
         return False
@@ -151,12 +159,14 @@ class DBHelper:
                 'gsipk': apikey
             }
         )
+        log_table_operation(res,'put')
         return apikey
 
     def register_3PL(self, username: str):
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(username)
         )
+        log_table_operation(res,'get')
         item = res.get('Items', [])
         if len(item):
             return None
@@ -202,6 +212,7 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
+        log_table_operation(res,'delete')
 
     def delete_3PL(self, username: str):
         authkey = self.get_auth_key(username)
@@ -212,7 +223,7 @@ class DBHelper:
                     'sk': authkey
                 }
             )
-
+        log_table_operation(res,'delete')
     def set_oem_threshold(self, oem: str, threshold: str):
         item = self.fetch_oem_data(oem)
         if item == {}:
@@ -221,6 +232,7 @@ class DBHelper:
             }
         item['threshold'] = threshold
         res = self.table.put_item(Item=item)
+        log_table_operation(res,'put')
         return {
             "success": f"OEM {oem} threshold set to {threshold}"
         }
