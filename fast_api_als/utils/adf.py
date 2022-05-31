@@ -5,7 +5,7 @@ from uszipcode import SearchEngine
 import re
 
 
-
+logging.basicConfig(format='%(levelname)s %(asctime)s %(message)s',level=logging.DEBUG)
 # ISO8601 datetime regex
 regex = r'^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(\.[0-9]+)?(Z|[+-](?:2[0-3]|[01][0-9]):[0-5][0-9])?$'
 match_iso8601 = re.compile(regex).match
@@ -29,7 +29,7 @@ def validate_iso8601(requestdate):
         if match_iso8601(requestdate) is not None:
             return True
     except:
-        pass
+        logging.error("verification of request date failed")
     return False
 
 
@@ -39,8 +39,11 @@ def is_nan(x):
 
 def parse_xml(adf_xml):
     # use exception handling
-    obj = xmltodict.parse(adf_xml)
-    return obj
+    try:
+        obj = xmltodict.parse(adf_xml)
+        return obj
+    except:
+        raise Exception("Error in parsing adf_xml")
 
 
 def validate_adf_values(input_json):
@@ -67,6 +70,7 @@ def validate_adf_values(input_json):
     # zipcode validation
     res = zipcode_search.by_zipcode(zipcode)
     if not res:
+        logging.error(f"Invalid Postal Code")
         return {"status": "REJECTED", "code": "4_INVALID_ZIP", "message": "Invalid Postal Code"}
 
     # check for TCPA Consent
@@ -75,11 +79,14 @@ def validate_adf_values(input_json):
         if id['@source'] == 'TCPA_Consent' and id['#text'].lower() == 'yes':
             tcpa_consent = True
     if not email and not tcpa_consent:
+        logging.error(f"Contact Method missing TCPA consent")
         return {"status": "REJECTED", "code": "7_NO_CONSENT", "message": "Contact Method missing TCPA consent"}
 
     # request date in ISO8601 format
     if not validate_iso8601(input_json['requestdate']):
+        logging.error(f"Invalid DateTime")
         return {"status": "REJECTED", "code": "3_INVALID_FIELD", "message": "Invalid DateTime"}
+
 
     return {"status": "OK"}
 
@@ -95,7 +102,8 @@ def check_validation(input_json):
         response = validate_adf_values(input_json)
         if response['status'] == "REJECTED":
             return False, response['code'], response['message']
+        logging.info("check validation successfull")
         return True, "input validated", "validation_ok"
     except Exception as e:
-        logger.error(f"Validation failed: {e.message}")
+        logging.error(f"Validation failed: {e.message}")
         return False, "6_MISSING_FIELD", e.message
