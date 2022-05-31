@@ -10,17 +10,19 @@ from starlette.status import HTTP_200_OK, HTTP_401_UNAUTHORIZED
 
 router = APIRouter()
 
-
+logging.basicConfig(format='%(levelname)s %(asctime)s %(message)s',level=logging.DEBUG)
 @router.post("/reset_authkey")
 async def reset_authkey(request: Request, token: str = Depends(get_token)):
     body = await request.body()
     body = json.loads(body)
     provider, role = get_user_role(token)
     if role != "ADMIN" and (role != "3PL"):
-        pass
+        logging.info("user is unauthorized")
+        raise HTTPException(401,detail="user is unauthorized")
     if role == "ADMIN":
         provider = body['3pl']
     apikey = db_helper_session.set_auth_key(username=provider)
+    logging.info("reset authkey successfully executed")
     return {
         "status_code": HTTP_200_OK,
         "x-api-key": apikey
@@ -34,10 +36,12 @@ async def view_authkey(request: Request, token: str = Depends(get_token)):
     provider, role = get_user_role(token)
 
     if role != "ADMIN" and role != "3PL":
-        pass
+         logging.info("user is unauthorized")
+         raise HTTPException(401,detail="user is unauthorized")
     if role == "ADMIN":
         provider = body['3pl']
     apikey = db_helper_session.get_auth_key(username=provider)
+    logging.info("get_authkey successfully executed")
     return {
         "status_code": HTTP_200_OK,
         "x-api-key": apikey
