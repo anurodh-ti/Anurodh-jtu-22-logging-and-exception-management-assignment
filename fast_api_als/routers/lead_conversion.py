@@ -1,5 +1,6 @@
 import json
 from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 import logging
 import time
 
@@ -16,7 +17,7 @@ router = APIRouter()
 """
 write proper logging and exception handling
 """
-
+logging.basicConfig(format='%(levelname)s %(asctime)s %(message)s',level=logging.DEBUG)
 def get_quicksight_data(lead_uuid, item):
     """
             Creates the lead converted data for dumping into S3.
@@ -46,16 +47,16 @@ async def submit(file: Request, token: str = Depends(get_token)):
     body = json.loads(str(body, 'utf-8'))
 
     if 'lead_uuid' not in body or 'converted' not in body:
-        # throw proper HTTPException
-        pass
+        logging.warning("lead_uuid or converted not in body.")
+        raise HTTPException(400, detail="Missing lead_uuid or converted")
         
     lead_uuid = body['lead_uuid']
     converted = body['converted']
 
     oem, role = get_user_role(token)
     if role != "OEM":
-        # throw proper HTTPException
-        pass
+        logging.warning("user is unauthorized")
+        raise HTTPException(401,detail="user is unauthorized")
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
     if is_updated:
@@ -66,5 +67,6 @@ async def submit(file: Request, token: str = Depends(get_token)):
             "message": "Lead Conversion Status Update"
         }
     else:
-        # throw proper HTTPException
-        pass
+        logging.warning("lead conversion not updated")
+        raise HTTPException(400,detail="lead conversion not updated")
+
